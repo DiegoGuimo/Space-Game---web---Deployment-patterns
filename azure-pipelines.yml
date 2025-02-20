@@ -3,6 +3,8 @@ trigger:
 
 variables:
   buildConfiguration: 'Release'
+  wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
+  dotnetSdkVersion: '8.x'
 
 stages:
 - stage: 'Build'
@@ -11,13 +13,9 @@ stages:
   - job: 'Build'
     displayName: 'Build job'
     pool:
-      vmImage: 'ubuntu-20.04'
+      name: RetoAzure
       demands:
-      - npm
-
-    variables:
-      wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
-      dotnetSdkVersion: '6.x'
+      - agent.name -equals MyAgent
 
     steps:
     - task: UseDotNet@2
@@ -25,13 +23,25 @@ stages:
       inputs:
         version: '$(dotnetSdkVersion)'
 
+    - task: UseNode@1
+      displayName: Install Node.js 16.x
+      inputs:
+        version: 16.x
+
+    - script: npm cache clean --force
+      displayName: Clean NPM cache
+
     - task: Npm@1
       displayName: 'Run npm install'
       inputs:
         verbose: false
+        arguments: --no-optional
 
-    - script: './node_modules/.bin/node-sass $(wwwrootDir) --output $(wwwrootDir)'
+    - script: npx sass $(wwwrootDir) --no-source-map --style=compressed
       displayName: 'Compile Sass assets'
+
+    - script: npm install --global gulp-cli
+      displayName: Install Gulp CLI globally
 
     - task: gulp@1
       displayName: 'Run gulp tasks'
@@ -71,7 +81,9 @@ stages:
   jobs:
   - deployment: Deploy
     pool:
-      vmImage: 'ubuntu-20.04'
+      name: 'RetoAzure'
+      demands:
+        - agent.name -equals MyAgent
     environment: dev
     variables:
     - group: Release
@@ -94,7 +106,9 @@ stages:
   jobs:
   - deployment: Deploy
     pool:
-      vmImage: 'ubuntu-20.04'
+      name: 'RetoAzure'
+      demands:
+        - agent.name -equals MyAgent
     environment: test
     variables:
     - group: 'Release'
@@ -117,7 +131,9 @@ stages:
   jobs:
   - deployment: Deploy
     pool:
-      vmImage: 'ubuntu-20.04'
+      name: 'RetoAzure'
+      demands:
+        - agent.name -equals MyAgent
     environment: staging
     variables:
     - group: 'Release'
